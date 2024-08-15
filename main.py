@@ -6,6 +6,7 @@ from model import RerankingModel, EmbeddingModel, BM25Model
 
 api_key = "YOUR_OPENAI_API_KEY"
 base_url = None
+llm_model = "gpt-4o"
 
 with open('texts.json', 'r', encoding='utf-8') as f:
     texts = json.load(f)
@@ -18,7 +19,7 @@ models = [embed1, embed2, bm25]
 ranker_path = 'BAAI/bge-reranker-large'
 ranker = RerankingModel(ranker_path)
 
-llm = ChatOpenAI(model="qwen", temperature=0.7, api_key=api_key, base_url=base_url)
+llm = ChatOpenAI(model=llm_model, temperature=0.7, api_key=api_key, base_url=base_url)
 
 while True:
     query = input("问题：")
