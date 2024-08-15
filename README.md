@@ -7,7 +7,7 @@
 3. 将召回的文本同问题合并在一起作为大模型的输入，最终输出答案
 ## 使用
 1. 将 txt 文档放入 `doc` 文件夹下
-2. 运行 `embedding.py`，将文档切成块，生成 GTE 和 GBE 所需的 embedding，最终保存下来。
+2. 运行 `embedding.py`，将文档切成块，生成 GTE 和 BGE 所需的 embedding，最终保存下来。
 3. 修改 `main.py` 中的 `api_key`，如有需要，可以修改 `base_url` 以及 `llm_model`
 4. 运行 `main.py`
 5. 在命令行中输入你想问的问题
