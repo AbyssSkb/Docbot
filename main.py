@@ -8,11 +8,11 @@ api_key = "YOUR_OPENAI_API_KEY"
 base_url = None
 llm_model = "gpt-4o"
 
-with open('texts.json', 'r', encoding='utf-8') as f:
+with open('index/texts.json', 'r', encoding='utf-8') as f:
     texts = json.load(f)
 
-embed1 = EmbeddingModel('thenlper/gte-large-zh', 'embed1.index')
-embed2 = EmbeddingModel('BAAI/bge-large-zh-v1.5', 'embed2.index')
+embed1 = EmbeddingModel('thenlper/gte-large-zh', 'index/embed1.index')
+embed2 = EmbeddingModel('BAAI/bge-large-zh-v1.5', 'index/embed2.index')
 bm25 = BM25Model(texts) 
 models = [embed1, embed2, bm25]
 
