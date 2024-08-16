@@ -19,8 +19,11 @@ pip install -r requirements.txt
 3. 将文档放入 `doc` 文件夹下（如果 `doc` 文件夹不存在，请先创建）。
 4. 运行 `create_index.py`，将文档切成块，生成 GTE 和 BGE 所需的 embedding，最终保存成索引。
 5. 修改 `main.py` 中的 `api_key`，如有需要，可以修改 `base_url` 以及 `llm_model`。
-6. 运行 `main.py`。
-7. 在命令行中输入你想问的问题。
+6. 使用 `streamlit` 运行 `main.py`。
+```bash
+streamlit run main.py
+```
+7. 在输入框中输入你想问的问题。
 
 ## 局限
 1. `GTE` 和 `BGE` 使用的是中文版本，对于英文文档的效果可能不好，但是可以通过手动切换成英文版本的方式来解决。
