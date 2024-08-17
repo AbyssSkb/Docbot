@@ -8,7 +8,7 @@ embed1 = EmbeddingModel('thenlper/gte-large-zh')
 embed2 = EmbeddingModel('BAAI/bge-large-zh-v1.5')
 
 if __name__ == '__main__':
-    loader = DirectoryLoader('doc')
+    loader = DirectoryLoader('doc', show_progress=True, use_multithreading=True)
     document = loader.load()
 
     chunk_size = 512
