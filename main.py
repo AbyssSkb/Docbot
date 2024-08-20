@@ -10,7 +10,7 @@ api_key = "YOUR_OPENAI_API_KEY"
 base_url = None
 llm_model = "gpt-4o"
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def load_texts():
     start_time = time.time()
     print("开始加载文本")
@@ -21,13 +21,13 @@ def load_texts():
     print(f"文本加载完毕, 花费 {(end_time - start_time):.2f} 秒")
     return texts
 
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def load_model():
     start_time = time.time()
     print("开始加载模型")
     embed1 = EmbeddingModel('thenlper/gte-large-zh', 'index/embed1.index')
     embed2 = EmbeddingModel('BAAI/bge-large-zh-v1.5', 'index/embed2.index')
-    bm25 = BM25Model(texts) 
+    bm25 = BM25Model(st.session_state.texts) 
     models = [embed1, embed2, bm25]
     
     ranker = RerankingModel('BAAI/bge-reranker-large')
@@ -37,16 +37,16 @@ def load_model():
     print(f"模型加载完毕, 花费 {(end_time - start_time):.2f} 秒")
     return models, ranker, llm
 
-@st.cache_data
+@st.cache_data(show_spinner="正在搜索上下文...")
 def find_context(query):
     start_time = time.time()
     print("开始搜索上下文")
     context = []
-    for model in models:
+    for model in st.session_state.models:
         indices = model.query(query)
-        context += [texts[index] for index in indices]
+        context += [st.session_state.texts[index] for index in indices]
 
-    context = ranker.select(query, context)
+    context = st.session_state.ranker.select(query, context)
     end_time = time.time()
     print(f"上下文搜索完毕，花费 {(end_time - start_time):.2f} 秒")
     return context
@@ -60,7 +60,7 @@ def process_query(query, context):
         HumanMessage(content=content),
     ]
     with st.chat_message("assistant"):
-        response = st.write_stream(llm.stream(messages))
+        response = st.write_stream(st.session_state.llm.stream(messages))
 
     st.session_state.messages.append({"role": "assistant", "content": response})
     end_time = time.time()
@@ -68,8 +68,16 @@ def process_query(query, context):
 
 st.title("Docbot")
 
-texts = load_texts()
-models, ranker, llm = load_model()
+if "initialized" not in st.session_state:
+    with st.status("正在初始化...") as status:
+        st.write("加载文本...")
+        st.session_state.texts = load_texts()
+        st.write("加载模型...")
+        st.session_state.models, st.session_state.ranker, st.session_state.llm = load_model()
+        status.update(label="初始化完毕！", state="complete")
+    st.session_state.initialized = True
+    time.sleep(1)
+    st.rerun()
 
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "你好，我是 AI 文档机器人，请问你有什么问题吗，我很乐意帮你解答。"}]
