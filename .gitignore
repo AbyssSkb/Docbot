@@ -14,4 +14,5 @@ wheels/
 doc/
 index/
 .env
-.python-version
+*.DS_Store
+runs/

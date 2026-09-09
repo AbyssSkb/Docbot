@@ -1,115 +1,84 @@
-# Docbot - AI-Powered Document Assistant 🤖
+# Docbot
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B.svg)](https://streamlit.io/)
-[![OpenAI](https://img.shields.io/badge/OpenAI-412991.svg)](https://openai.com/)
-[![FAISS](https://img.shields.io/badge/FAISS-0467C7.svg)](https://github.com/facebookresearch/faiss)
+面向中文长文档的知识库问答应用。导入文档后，通过 Web 对话检索内容、生成回答，并查看引用原文。
 
-## Overview 🔍
-Docbot is an intelligent document assistant that processes and analyzes documents to provide accurate answers to user queries. It leverages multiple advanced language models and retrieval techniques to ensure high-quality responses.
+- **文档接入**：支持 TXT、Markdown、PDF、Office 和图片，增量构建本地索引。
+- **混合检索**：BM25 与两路向量检索融合，可选 Qwen3 Reranker 重排。
+- **多轮问答**：按需搜索，展示检索过程，支持回看文件、章节和引用片段。
 
-## Features ⭐
-- Multi-document processing and analysis
-- Multi-route retrieval system for improved accuracy
-- Advanced reranking mechanism
-- Interactive chat interface
-- Support for various document formats
-- Streaming responses with real-time feedback
+## 快速开始
 
-## Technical Architecture 🏗️
-### Retrieval System 🔍
-- **Multiple Embedding Models**:
-  - GTE-large-zh: Optimized for Chinese text understanding
-  - BGE-large-zh: Enhanced semantic comprehension
-  - BM25: Classical information retrieval algorithm
-- **Reranking**: Uses BGE-reranker-large for context optimization
-- **Large Language Model**: Powered by GPT for natural language generation
+需要 Python 3.12+ 和 [uv](https://docs.astral.sh/uv/)。
 
-## How It Works 🛠️
-1. **Document Processing** 📄:
-   - Documents are loaded and split into manageable chunks
-   - Each chunk is processed through multiple embedding models
-
-2. **Query Processing** 🔎:
-   - User queries are processed through multiple retrieval routes
-   - Results are combined and reranked for relevance
-   - Most relevant context is selected for the final response
-
-3. **Response Generation** 💬:
-   - Selected context is combined with the user query
-   - LLM generates natural and accurate responses
-   - Responses are streamed in real-time
-
-## Installation & Usage Guide 🚀
-
-### Prerequisites 📋
-- Python 3.10+
-- CUDA-capable GPU (recommended)
-- [uv](https://github.com/astral-sh/uv) package manager (recommended)
-- OpenAI API key
-
-### Installation Steps 📥
-1. **Clone Repository**
 ```bash
-git clone https://github.com/AbyssSkb/Docbot
+git clone https://github.com/AbyssSkb/Docbot.git
 cd Docbot
-```
-
-2. **Install Dependencies**
-```bash
-# Using uv (recommended)
 uv sync
-
-# Or using pip
-pip install -r requirements.txt
+cp .env.example .env
 ```
 
-3. **Environment Setup**
-- Create a `.env` file in the project root:
-```env
-OPENAI_API_KEY=your_api_key
-OPENAI_BASE_URL=your_base_url  # Optional
-OPENAI_LLM_MODEL=your_preferred_model  # Default: gpt-4o
+在 `.env` 中配置兼容 OpenAI API 的模型服务：
+
+```dotenv
+OPENAI_API_KEY=your-api-key
+OPENAI_LLM_MODEL=gpt-4o
+# OPENAI_BASE_URL=https://your-provider.example/v1
 ```
 
-4. **Document Setup**
-- Create a `doc` folder in the project root
-- Place your documents in the `doc` folder
-- Generate document indexes:
+将文档放入 `doc/`，建索引并启动：
+
 ```bash
-python create_index.py
+uv run python create_index.py
+uv run streamlit run main.py
 ```
 
-### Running the Application 🏃
+## 文档与检索
+
+TXT、Markdown 直接读取；PDF、Office 和图片通过 MinerU 解析。默认使用免 token 的 `flash_extract`，配置 `MINERU_API_TOKEN` 后使用 VLM 解析，并支持旧版 `.doc`、`.ppt`。TXT、Markdown 会在索引前转存为 UTF-8。
+
+索引保存在 `index/`，默认切分长度 384、重叠 64。文档更新后重新运行建索引命令即可；完整重建使用 `--force`。`doc/` 和 `index/` 不随仓库提交。
+
+```text
+文档 → 解析与切分 → BM25 + Qwen3 / ritrieve 向量索引
+                         ↓
+问题 → 按需检索 → RRF 融合 → 可选重排 → LLM 回答与原文引用
+```
+
+Web 默认使用 `hybrid`，可在侧栏切换到 `hybrid_rerank`。向量模型自动使用 MPS、CUDA 或 CPU，FAISS 在 CPU 上运行。索引在本地，回答与 MinerU 解析使用配置的服务。
+
+## 评测与开发
+
+评测集包含 200 道题，覆盖细节、情节、跨 chunk 综合和无答案问题，dev/test 各 100 道。以证据召回率和 nDCG 为检索主指标，同时评估引用、拒答与人工答案质量。运行方式与指标口径见 [评测文档](eval/README.md)。
+
+Dev 共 100 题，检索指标统计其中 90 道可回答题。每路取 50 个候选，使用 v2 指标；未启用答案生成或重排。
+
+| 配置 | Recall@10 | nDCG@10 | Recall@50 | 平均耗时（ms） |
+| --- | ---: | ---: | ---: | ---: |
+| bm25 | 41.39% | 0.3490 | 53.52% | 46.3 |
+| embed1 | 71.15% | 0.5920 | 84.15% | 54.9 |
+| embed2 | 47.91% | 0.4000 | 66.83% | 35.5 |
+| dual_dense | 62.63% | 0.5223 | 84.24% | 91.4 |
+| hybrid | 70.69% | 0.5791 | 85.81% | 144.9 |
+
+embed1 的前 10 条证据覆盖和排序得分最高；hybrid 在前 50 条的证据召回率最高。向量模型使用 MPS、FAISS 使用 CPU；耗时为 100 题均值，不含模型加载。
+
+题库 SHA-256：`e66b2a85d3d3`；索引 manifest：`a56e2107eadc`。
+
+运行单元测试：
+
 ```bash
-streamlit run main.py
+uv run python -m unittest discover -s tests
 ```
 
-### Basic Usage 💡
-1. Open the provided URL in your web browser
-2. Enter your questions in the chat interface
-3. View real-time responses based on your documents
+| 文件 | 用途 |
+| --- | --- |
+| `main.py` | Web 界面 |
+| `create_index.py` | 文档解析与索引构建 |
+| `pipeline.py` | 问答流程与引用校验 |
+| `model.py` | 检索、融合与重排 |
+| `benchmark.py` / `eval.py` | 评测运行与指标计算 |
+| `eval/` | 题库与评测说明 |
 
-## Limitations and Considerations ⚠️
-1. **Language Support** 🌐:
-   - Primary optimization for Chinese text
-   - English support can be enabled by switching to English-language models
-   - Consider language-specific requirements for your use case
+## License
 
-2. **Text Processing** 📝:
-   - Jieba tokenizer is optimized for Chinese
-   - Basic English tokenization support
-   - May require adjustment for other languages
-
-3. **Document Compatibility** 📄:
-   - Uses LangChain's DirectoryLoader
-   - Some document formats may have compatibility issues
-   - Verify support for your specific document types
-
-## Contributing 🤝
-Contributions are welcome! Please feel free to submit pull requests or create issues for bugs and feature requests.
-
-## License ⚖️
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
+[MIT](LICENSE)

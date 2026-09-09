@@ -1,0 +1,3 @@
+[server]
+# ponytail: restart after code edits; re-enable when upstream fixes lazy-module inspection.
+fileWatcherType = "none"
