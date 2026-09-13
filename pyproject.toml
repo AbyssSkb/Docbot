@@ -1,0 +1,21 @@
+[project]
+name = "docbot"
+version = "0.1.0"
+description = "An evaluation-driven, citation-grounded RAG system for Chinese documents"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "charset-normalizer>=3.5.1",
+    "faiss-cpu>=1.15.0",
+    "jieba>=0.42.1",
+    "langchain-text-splitters>=1.1.2",
+    "mineru-open-sdk==0.2.5",
+    "openai>=3.8.0",
+    "python-dotenv>=1.2.3",
+    "rank-bm25>=0.2.2",
+    "sentence-transformers>=3.4.1",
+    "streamlit>=1.63.0",
+    "torch>=2.14.0",
+    "tqdm>=4.70.0",
+    "transformers>=5.16.1",
+]
