@@ -44,7 +44,11 @@ TXT、Markdown 直接读取；PDF、Office 和图片通过 MinerU 解析。默�
 问题 → 按需检索 → RRF 融合 → 可选重排 → LLM 回答与原文引用
 ```
 
-Web 默认使用 `hybrid`，可在侧栏切换到 `hybrid_rerank`。向量模型自动使用 MPS、CUDA 或 CPU，FAISS 在 CPU 上运行。索引在本地，回答与 MinerU 解析使用配置的服务。
+Web 和 agent CLI 均支持上表六种检索配置：`bm25`、`embed1`、`embed2`、`dual_dense`、`hybrid` 和 `hybrid_rerank`。Web 侧栏与 CLI 默认使用 `hybrid`；CLI 可用 `--retrieval-config` 选择其他策略。向量模型自动使用 MPS、CUDA 或 CPU，FAISS 在 CPU 上运行。索引在本地，回答与 MinerU 解析使用配置的服务。
+
+```bash
+uv run python docbot.py search "问题" --retrieval-config hybrid_rerank
+```
 
 ## 评测与开发
 

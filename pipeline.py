@@ -10,6 +10,30 @@ QWEN_QUERY_PROMPT = "query"
 RERANK_CANDIDATE_K = 50
 DEFAULT_RERANKER_MODEL = "Qwen/Qwen3-Reranker-0.6B"
 DEFAULT_RERANKER_REVISION = "e61197ed45024b0ed8a2d74b80b4d909f1255473"
+RETRIEVAL_CONFIG_ROUTES = {
+    "bm25": ("bm25",),
+    "embed1": ("embed1",),
+    "embed2": ("embed2",),
+    "dual_dense": ("embed1", "embed2"),
+    "hybrid": ("embed1", "embed2", "bm25"),
+    "hybrid_rerank": ("embed1", "embed2", "bm25"),
+}
+RETRIEVAL_CONFIG_LABELS = {
+    "bm25": "BM25（关键词，轻量）",
+    "embed1": "Embedding 1（Qwen3，语义）",
+    "embed2": "Embedding 2（ritrieve，语义）",
+    "dual_dense": "Dual Dense（双向量，RRF）",
+    "hybrid": "Hybrid（默认，快速）",
+    "hybrid_rerank": "Hybrid + Qwen3 Reranker（精排，较慢）",
+}
+RETRIEVAL_SCORE_SEMANTICS = {
+    "bm25": "BM25 raw score; higher is better",
+    "embed1": "negative FAISS squared L2 distance; higher is better",
+    "embed2": "negative FAISS squared L2 distance; higher is better",
+    "dual_dense": "RRF score; higher is better",
+    "hybrid": "RRF score; higher is better",
+    "hybrid_rerank": "reranker raw logit; higher is better",
+}
 CITATION_RE = re.compile(r"\[(chunk_[^\]\s]+)\]")
 DOC_ID_RE = re.compile(r"doc_[0-9a-f]{64}\Z")
 CHUNK_ID_RE = re.compile(r"chunk_[0-9a-f]{64}\Z")
@@ -218,6 +242,45 @@ def load_models(
         else None
     )
     return retrievers, ranker
+
+
+def load_retrieval_config(manifest, chunks, index_dir="index", config="hybrid"):
+    if config not in RETRIEVAL_CONFIG_ROUTES:
+        raise ValueError(f"unknown retrieval config: {config}")
+
+    routes = RETRIEVAL_CONFIG_ROUTES[config]
+    configured_manifest = {
+        **manifest,
+        "embedding_models": [
+            entry
+            for entry in manifest["embedding_models"]
+            if Path(entry["index"]).stem in routes
+        ],
+    }
+    reranker_name = (
+        DEFAULT_RERANKER_MODEL if config == "hybrid_rerank" else None
+    )
+    reranker_revision = (
+        DEFAULT_RERANKER_REVISION if config == "hybrid_rerank" else None
+    )
+    retrievers, ranker = load_models(
+        configured_manifest,
+        chunks,
+        index_dir,
+        reranker_name,
+        reranker_revision,
+    )
+    return {route: retrievers[route] for route in routes}, ranker
+
+
+def retrieval_score(result, config):
+    if config == "hybrid_rerank":
+        return float(result["rerank_score"])
+    if config == "bm25":
+        return float(result["routes"][0]["raw_score"])
+    if config in {"embed1", "embed2"}:
+        return -float(result["routes"][0]["raw_score"])
+    return float(result["rrf_score"])
 
 
 def retrieve(

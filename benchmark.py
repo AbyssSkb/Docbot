@@ -23,32 +23,21 @@ from eval import load_gold, validate_gold_mapping, write_jsonl
 from pipeline import (
     DEFAULT_RERANKER_MODEL,
     DEFAULT_RERANKER_REVISION,
+    RETRIEVAL_CONFIG_ROUTES,
+    RETRIEVAL_SCORE_SEMANTICS,
     is_refusal,
     load_index_bundle,
-    load_models,
+    load_retrieval_config,
     retrieve,
+    retrieval_score,
     validate_answer_citations,
 )
 
 
 load_dotenv()
 
-CONFIG_ROUTES = {
-    "bm25": ("bm25",),
-    "embed1": ("embed1",),
-    "embed2": ("embed2",),
-    "dual_dense": ("embed1", "embed2"),
-    "hybrid": ("embed1", "embed2", "bm25"),
-    "hybrid_rerank": ("embed1", "embed2", "bm25"),
-}
-SCORE_SEMANTICS = {
-    "bm25": "BM25 raw score; higher is better",
-    "embed1": "negative FAISS squared L2 distance; higher is better",
-    "embed2": "negative FAISS squared L2 distance; higher is better",
-    "dual_dense": "RRF score; higher is better",
-    "hybrid": "RRF score; higher is better",
-    "hybrid_rerank": "reranker raw logit; higher is better",
-}
+CONFIG_ROUTES = RETRIEVAL_CONFIG_ROUTES
+SCORE_SEMANTICS = RETRIEVAL_SCORE_SEMANTICS
 RERANKER_MODEL = DEFAULT_RERANKER_MODEL
 RERANKER_REVISION = DEFAULT_RERANKER_REVISION
 LLM_MODEL = os.getenv("OPENAI_LLM_MODEL", "gpt-4o")
@@ -57,13 +46,7 @@ CONTEXT_K = 10
 
 
 def _top_score(result, config):
-    if config == "hybrid_rerank":
-        return float(result["rerank_score"])
-    if config == "bm25":
-        return float(result["routes"][0]["raw_score"])
-    if config in {"embed1", "embed2"}:
-        return -float(result["routes"][0]["raw_score"])
-    return float(result["rrf_score"])
+    return retrieval_score(result, config)
 
 
 def _generate(client, model, contexts, question):
@@ -261,23 +244,10 @@ def run_benchmark(
 
 def load_config(index_dir, config):
     manifest, chunks = load_index_bundle(index_dir)
-    routes = CONFIG_ROUTES[config]
-    configured_manifest = {
-        **manifest,
-        "embedding_models": [
-            entry
-            for entry in manifest["embedding_models"]
-            if Path(entry["index"]).stem in routes
-        ],
-    }
-    retrievers, ranker = load_models(
-        configured_manifest,
-        chunks,
-        index_dir,
-        RERANKER_MODEL if config == "hybrid_rerank" else None,
-        RERANKER_REVISION if config == "hybrid_rerank" else None,
+    retrievers, ranker = load_retrieval_config(
+        manifest, chunks, index_dir, config
     )
-    return chunks, {route: retrievers[route] for route in routes}, ranker
+    return chunks, retrievers, ranker
 
 
 def ensure_index(index_dir="index", doc_dir="doc", rebuild=False):

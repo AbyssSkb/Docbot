@@ -14,6 +14,8 @@ from pipeline import (
     CITATION_RE,
     DEFAULT_RERANKER_MODEL,
     DEFAULT_RERANKER_REVISION,
+    RETRIEVAL_CONFIG_LABELS,
+    RETRIEVAL_CONFIG_ROUTES,
     load_index_bundle,
     load_models,
     run_agent,
@@ -26,26 +28,14 @@ logger = logging.getLogger("docbot")
 
 INDEX_DIR = Path("index")
 LLM_MODEL = os.getenv("OPENAI_LLM_MODEL", "gpt-4o")
-RETRIEVAL_CONFIG_LABELS = {
-    "hybrid": "Hybrid（默认，快速）",
-    "hybrid_rerank": "Hybrid + Qwen3 Reranker（精排，较慢）",
-}
 
 
 @st.cache_resource(show_spinner=False)
 def load_resources(manifest_checksum, base_url):
     del manifest_checksum  # It exists to invalidate Streamlit's resource cache.
     manifest, chunks = load_index_bundle(INDEX_DIR)
-    configured_manifest = {
-        **manifest,
-        "embedding_models": [
-            entry
-            for entry in manifest["embedding_models"]
-            if Path(entry["index"]).stem in {"embed1", "embed2"}
-        ],
-    }
     retrievers, _ = load_models(
-        configured_manifest,
+        manifest,
         chunks,
         INDEX_DIR,
     )
@@ -129,6 +119,7 @@ retrieval_config = st.sidebar.radio(
     "检索策略",
     options=tuple(RETRIEVAL_CONFIG_LABELS),
     format_func=RETRIEVAL_CONFIG_LABELS.get,
+    index=tuple(RETRIEVAL_CONFIG_LABELS).index("hybrid"),
 )
 max_attempts = st.sidebar.number_input(
     "最大搜索与重试次数",
@@ -142,10 +133,12 @@ try:
     manifest_path = INDEX_DIR / "manifest.json"
     manifest_checksum = sha256_file(manifest_path)
     with st.status("正在加载索引与模型...", expanded=False) as status:
-        manifest, chunks, retrievers, llm = load_resources(
+        manifest, chunks, all_retrievers, llm = load_resources(
             manifest_checksum,
             os.getenv("OPENAI_BASE_URL", ""),
         )
+        routes = RETRIEVAL_CONFIG_ROUTES[retrieval_config]
+        retrievers = {route: all_retrievers[route] for route in routes}
         ranker = load_reranker() if retrieval_config == "hybrid_rerank" else None
         status.update(label="初始化完毕", state="complete")
 except Exception as error:

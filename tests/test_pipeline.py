@@ -4,11 +4,16 @@ import tempfile
 import unittest
 from copy import deepcopy
 from pathlib import Path
+from unittest.mock import patch
 
 from pipeline import (
+    DEFAULT_RERANKER_MODEL,
+    DEFAULT_RERANKER_REVISION,
+    RETRIEVAL_CONFIG_ROUTES,
     build_messages,
     extract_citations,
     load_index_bundle,
+    load_retrieval_config,
     validate_answer_citations,
 )
 
@@ -63,6 +68,42 @@ def write_valid_bundle(root):
 
 
 class PipelineTest(unittest.TestCase):
+    @patch("pipeline.load_models")
+    def test_load_retrieval_config_selects_only_requested_routes(self, load_models):
+        manifest = {
+            "embedding_models": [
+                {"index": "embed1.index", "name": "one"},
+                {"index": "embed2.index", "name": "two"},
+            ]
+        }
+        retrievers = {
+            "embed1": object(),
+            "embed2": object(),
+            "bm25": object(),
+        }
+        load_models.return_value = retrievers, None
+
+        for config, routes in RETRIEVAL_CONFIG_ROUTES.items():
+            with self.subTest(config=config):
+                selected, ranker = load_retrieval_config(
+                    manifest, [], "index", config
+                )
+                self.assertEqual(
+                    selected, {route: retrievers[route] for route in routes}
+                )
+                self.assertIsNone(ranker)
+                call = load_models.call_args
+                self.assertEqual(
+                    [entry["index"] for entry in call.args[0]["embedding_models"]],
+                    [f"{route}.index" for route in routes if route != "bm25"],
+                )
+                if config == "hybrid_rerank":
+                    self.assertEqual(call.args[3], DEFAULT_RERANKER_MODEL)
+                    self.assertEqual(call.args[4], DEFAULT_RERANKER_REVISION)
+                else:
+                    self.assertIsNone(call.args[3])
+                    self.assertIsNone(call.args[4])
+
     def test_manifest_validation_and_citations(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -59,7 +59,7 @@ class BenchmarkTest(unittest.TestCase):
                 force=True,
             )
 
-    @patch("benchmark.load_models")
+    @patch("pipeline.load_models")
     @patch("benchmark.load_index_bundle")
     def test_load_config_loads_only_requested_embedding(
         self, load_index_bundle, load_models

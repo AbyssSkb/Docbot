@@ -196,7 +196,10 @@ class AgentTest(unittest.TestCase):
         with (
             patch("create_index.sha256_file", return_value="agent-memory-test"),
             patch("pipeline.load_index_bundle", return_value=(manifest, [CHUNK, OTHER])),
-            patch("pipeline.load_models", return_value=({}, None)),
+            patch(
+                "pipeline.load_models",
+                return_value=({"embed1": object(), "embed2": object(), "bm25": object()}, None),
+            ),
             patch("openai.OpenAI", return_value=client),
         ):
             app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "main.py"))
@@ -298,7 +301,10 @@ class AgentTest(unittest.TestCase):
         with (
             patch("create_index.sha256_file", return_value="agent-chat-test"),
             patch("pipeline.load_index_bundle", return_value=(manifest, [CHUNK, OTHER])),
-            patch("pipeline.load_models", return_value=({}, None)),
+            patch(
+                "pipeline.load_models",
+                return_value=({"embed1": object(), "embed2": object(), "bm25": object()}, None),
+            ),
             patch("openai.OpenAI", return_value=client),
         ):
             app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "main.py"))
